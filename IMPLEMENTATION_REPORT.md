@@ -1,0 +1,24 @@
+# S_DD v1.1.0 implementation and validation report
+
+## What is implemented
+
+S_DD is an experimental, scratch-first Linux restore utility. The CLI is `s_dd`; it supports `--help`, `--version`, a simple interactive menu, `doctor`, `inspect IMAGE`, `restore IMAGE DESTINATION --scratch DIRECTORY`, and `resume JOB_DIRECTORY`. The restore engine remains Rev 1's single-primary-NTFS-on-MBR workflow. It accepts raw `.img` and gzip `.img.gz`, measures NTFS minimum size with established utilities, shrinks only a scratch copy, uses `virt-resize --no-expand-content`, validates the fitted image before any destination write, and verifies the actual destination by read-back.
+
+`lsblk -T` parsing now identifies the exact whole-disk node by path and collects descendants through `PKNAME`, independent of JSON ordering. The prompt displays destination path, model, serial, and capacity; `y`/`Y` proceeds, while blank, no, EOF, and Ctrl+C cancel. A completed fitted image is saved with a SHA-256/layout checkpoint before confirmation. `s_dd resume JOB` verifies that image, rechecks the original destination model/serial/capacity, mounted state and source/scratch overlap, then asks for confirmation again. It does not redo staging or shrinking. A write interruption is reported as potentially leaving the destination incomplete.
+
+Installation scripts are included. The system installer creates a dedicated venv under `/opt/s_dd` and a launcher in `/usr/local/bin`, which is normally in sudo's secure PATH. It refuses to overwrite an existing install. The script was not run on this development host. The user installer targets `~/.local` and does not silently alter PATH.
+
+## Test results
+
+- The source test suite passed **37 tests** with `python3 -B -m unittest discover -s tests`. It uses mocks for physical disk identity, system commands, and privileged block-device behavior. Regression coverage includes `lsblk` sibling/topology parsing, yes/no confirmation, checkpoint checksum/layout and path restrictions, CLI/version/menu, pre-write failures, interruption reporting, and a real regular-file resume/write/read-back flow. The physical disk paths and root-only operations were not executed.
+- A previous genuine CachyOS integration test used regular-file images, real NTFS creation and filesystem utilities, `guestfish`, and `virt-resize`. Both raw and gzip restoration paths passed with all four fixture-file SHA-256 checks matching. That was the synthetic file-target workflow; it was not a physical-disk test.
+- In the user's real-world test, S_DD completed validation, decompression, NTFS measurement/shrink, and fitted-image creation. S_DD did **not** complete its final write because a blank confirmation was rejected. The user then manually used GNU `dd` to write the fitted image to a Samsung SSD 850 EVO 250GB; Windows XP booted successfully. This is a successful real boot of an S_DD-prepared image, not an end-to-end S_DD destination-write pass. Instrument operation remains unvalidated.
+- The release ZIP was extracted under `/tmp`, installed through the included user installer into a temporary HOME, and `s_dd --version` and `s_dd --help` worked from another directory. All 37 unit tests passed from the extracted archive. The system-wide `/opt` installer and actual `sudo s_dd` invocation were not run because this host may only be modified within the project workspace; its shell syntax was checked and its fixed paths are `/opt/s_dd` and `/usr/local/bin/s_dd`. The expected sudo secure-path lookup was reviewed, not exercised. Ubuntu compatibility has not been executed on Ubuntu. The user must review copyright ownership and approve the MIT licensing terms before public release; the repository's MIT text is included as a proposed license.
+
+## Scope and limitations
+
+Confirmed physical compatibility is limited to the reported Windows XP, NTFS, legacy BIOS/MBR single-partition installation restored to a smaller SSD. No other OS, filesystem, GPT/multi-partition layout, or instrument workload is validated. Windows may run CHKDSK because the supported NTFS resize workflow schedules a check. Byte comparisons and synthetic file hashes do not prove BIOS boot or instrument compatibility.
+
+The operation is destructive: confirming the wrong disk erases it. Power loss or failure after `DESTINATION WRITE BEGINS NOW` can leave a partial disk. Do not use on the original HDD, source image, scratch disk, system disk, or a non-expendable target. S_DD is experimental, provided as-is, and not actively maintained; public responses and merges are not guaranteed.
+
+The current Codex sandbox does not permit a genuine libguestfs appliance rerun. Do not bypass the sandbox. The previously successful CachyOS raw/gzip integration results are documented in `.sdd-test-sandbox/real-ntfs-bv8tdcsr/results.json` when retained locally; the release ZIP intentionally excludes test images, scratch, and result artifacts.

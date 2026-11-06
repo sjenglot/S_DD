@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shrink-dd"
+version = "1.1.0"
+description = "Scratch-assisted restore of legacy single-partition MBR/NTFS disk images"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "SDD contributors"}]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+s_dd = "sdd:main"
+
+[tool.setuptools]
+py-modules = ["sdd"]
